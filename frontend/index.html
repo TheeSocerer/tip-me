@@ -339,8 +339,11 @@
     </div>
 
     <script>
-        // Contract configuration
+        // ===== CONTRACT CONFIGURATION =====
+        // Replace this with your actual deployed contract address
         const CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890"; // Replace with actual deployed contract address
+        
+        // Contract ABI (Application Binary Interface) - defines how to interact with the contract
         const CONTRACT_ABI = [
             "function tip(string memory _message) external payable",
             "function withdraw() external",
@@ -352,14 +355,16 @@
             "event Withdrawn(address indexed owner, uint256 amount, uint256 timestamp)"
         ];
 
-        // Global variables
+        // ===== GLOBAL VARIABLES =====
+        // These store the current state of the application
         let provider;
-        let signer;
-        let contract;
-        let userAddress;
-        let isOwner = false;
+        let signer;      // Used to sign transactions
+        let contract;    // Contract instance for making calls
+        let userAddress; // Currently connected wallet address
+        let isOwner = false; // Whether current user is contract owner
 
-        // DOM elements
+        // ===== DOM ELEMENT REFERENCES =====
+        // Get references to HTML elements we'll interact with
         const connectBtn = document.getElementById('connectBtn');
         const walletStatus = document.getElementById('walletStatus');
         const walletAddress = document.getElementById('walletAddress');
@@ -371,67 +376,75 @@
         const tipBtn = document.getElementById('tipBtn');
         const withdrawBtn = document.getElementById('withdrawBtn');
 
-        // Initialize the app
+        // ===== APPLICATION INITIALIZATION =====
+        // This function runs when the page loads
         async function init() {
+            // Check if user has a Web3 wallet installed
             if (typeof window.ethereum !== 'undefined') {
+                // Set up event listeners for buttons
                 connectBtn.addEventListener('click', connectWallet);
                 tipBtn.addEventListener('click', sendTip);
                 withdrawBtn.addEventListener('click', withdrawTips);
                 
-                // Check if already connected
+                // Check if wallet is already connected from previous session
                 const accounts = await window.ethereum.request({ method: 'eth_accounts' });
                 if (accounts.length > 0) {
                     await connectWallet();
                 }
             } else {
+                // Show error if no Web3 wallet is detected
                 showStatus('Please install MetaMask or Coinbase Wallet!', 'error');
             }
         }
 
-        // Connect wallet
+        // ===== WALLET CONNECTION =====
+        // Function to connect user's wallet to the application
         async function connectWallet() {
             try {
                 showStatus('Connecting wallet...', 'pending');
                 
+                // Request access to user's wallet accounts
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
+                // Create provider and signer for blockchain interactions
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
                 
-                // Check network
+                // Verify user is on the correct network (Base Sepolia)
                 const network = await provider.getNetwork();
                 if (network.chainId !== 84532) {
                     throw new Error('Please switch to Base Sepolia testnet (Chain ID: 84532)');
                 }
                 
-                // Initialize contract
+                // Create contract instance for making calls
                 contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
                 
-                // Update UI
+                // Update the user interface to show connected state
                 walletStatus.textContent = 'Connected';
                 walletAddress.textContent = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
                 walletAddress.classList.remove('hidden');
                 connectBtn.textContent = 'Connected';
                 connectBtn.disabled = true;
                 
-                // Check if user is owner
+                // Check if connected user is the contract owner
                 const owner = await contract.owner();
                 isOwner = owner.toLowerCase() === userAddress.toLowerCase();
                 
-                // Show relevant sections
+                // Show appropriate UI sections based on connection status
                 contractInfo.classList.remove('hidden');
                 tipForm.classList.remove('hidden');
                 if (isOwner) {
                     ownerSection.classList.remove('hidden');
                 }
                 
+                // Load current contract data
                 await updateContractInfo();
                 await loadRecentTips();
                 
                 showStatus('Wallet connected successfully!', 'success');
                 
-                // Listen for account changes
+                // Set up listeners for wallet changes
                 window.ethereum.on('accountsChanged', handleAccountsChanged);
                 window.ethereum.on('chainChanged', handleChainChanged);
                 
@@ -441,12 +454,15 @@
             }
         }
 
-        // Send tip
+        // ===== TIP SENDING FUNCTIONALITY =====
+        // Function to send a tip with message to the contract
         async function sendTip() {
             try {
+                // Get values from the form inputs
                 const amount = document.getElementById('tipAmount').value;
                 const message = document.getElementById('tipMessage').value;
                 
+                // Validate input values
                 if (!amount || parseFloat(amount) <= 0) {
                     throw new Error('Please enter a valid tip amount');
                 }
@@ -455,25 +471,28 @@
                     throw new Error('Please enter a message');
                 }
                 
+                // Update UI to show transaction in progress
                 showStatus('Sending tip...', 'pending');
                 tipBtn.innerHTML = '<span class="loading"></span>Sending...';
                 tipBtn.disabled = true;
                 
+                // Call the contract's tip function with ETH value
                 const tx = await contract.tip(message, {
                     value: ethers.utils.parseEther(amount)
                 });
                 
                 showStatus('Transaction submitted! Waiting for confirmation...', 'pending');
                 
+                // Wait for transaction to be mined
                 await tx.wait();
                 
                 showStatus('Tip sent successfully! 🎉', 'success');
                 
-                // Clear form
+                // Reset the form after successful tip
                 document.getElementById('tipAmount').value = '';
                 document.getElementById('tipMessage').value = '';
                 
-                // Update contract info and tips
+                // Refresh displayed data
                 await updateContractInfo();
                 await loadRecentTips();
                 
@@ -481,43 +500,53 @@
                 console.error('Error sending tip:', error);
                 showStatus(error.message, 'error');
             } finally {
+                // Reset button state regardless of success/failure
                 tipBtn.innerHTML = 'Send Tip';
                 tipBtn.disabled = false;
             }
         }
 
-        // Withdraw tips (owner only)
+        // ===== WITHDRAWAL FUNCTIONALITY (OWNER ONLY) =====
+        // Function for contract owner to withdraw all accumulated tips
         async function withdrawTips() {
             try {
+                // Update UI to show withdrawal in progress
                 showStatus('Withdrawing tips...', 'pending');
                 withdrawBtn.innerHTML = '<span class="loading"></span>Withdrawing...';
                 withdrawBtn.disabled = true;
                 
+                // Call the contract's withdraw function
                 const tx = await contract.withdraw();
                 
                 showStatus('Transaction submitted! Waiting for confirmation...', 'pending');
                 
+                // Wait for transaction to be mined
                 await tx.wait();
                 
                 showStatus('Tips withdrawn successfully! 💰', 'success');
                 
+                // Update displayed contract balance
                 await updateContractInfo();
                 
             } catch (error) {
                 console.error('Error withdrawing tips:', error);
                 showStatus(error.message, 'error');
             } finally {
+                // Reset button state
                 withdrawBtn.innerHTML = 'Withdraw All Tips';
                 withdrawBtn.disabled = false;
             }
         }
 
-        // Update contract information
+        // ===== CONTRACT DATA DISPLAY =====
+        // Function to fetch and display current contract information
         async function updateContractInfo() {
             try {
+                // Get current contract balance and tip count
                 const balance = await contract.getBalance();
                 const tipCount = await contract.getTipCount();
                 
+                // Update the displayed information
                 document.getElementById('contractAddress').textContent = `${CONTRACT_ADDRESS.slice(0, 6)}...${CONTRACT_ADDRESS.slice(-4)}`;
                 document.getElementById('contractBalance').textContent = `${ethers.utils.formatEther(balance)} ETH`;
                 document.getElementById('totalTips').textContent = tipCount.toString();
@@ -527,23 +556,29 @@
             }
         }
 
-        // Load recent tips
+        // ===== TIP HISTORY DISPLAY =====
+        // Function to load and display recent tips from the contract
         async function loadRecentTips() {
             try {
+                // Get all tips from the contract
                 const tips = await contract.getAllTips();
                 const tipsContainer = document.getElementById('tipsContainer');
                 
+                // Handle case where no tips exist yet
                 if (tips.length === 0) {
                     tipsContainer.innerHTML = '<p style="color: #718096; text-align: center;">No tips yet. Be the first to tip! 🎉</p>';
                 } else {
-                    // Show last 5 tips
+                    // Show last 5 tips in reverse order (newest first)
                     const recentTipsArray = tips.slice(-5).reverse();
                     
+                    // Generate HTML for each tip
                     tipsContainer.innerHTML = recentTipsArray.map(tip => {
                         const date = new Date(tip.timestamp * 1000);
+                        // Show "You" for current user's tips, otherwise show shortened address
                         const senderDisplay = tip.sender.toLowerCase() === userAddress?.toLowerCase() ? 
                             'You' : `${tip.sender.slice(0, 6)}...${tip.sender.slice(-4)}`;
                         
+                        // Return HTML template for each tip
                         return `
                             <div class="tip-item">
                                 <div class="tip-meta">
@@ -559,6 +594,7 @@
                     }).join('');
                 }
                 
+                // Show the tips section
                 recentTips.classList.remove('hidden');
                 
             } catch (error) {
@@ -566,12 +602,14 @@
             }
         }
 
-        // Show status message
+        // ===== UI HELPER FUNCTIONS =====
+        // Function to display status messages to the user
         function showStatus(message, type) {
             statusMessage.textContent = message;
             statusMessage.className = `status-message status-${type}`;
             statusMessage.classList.remove('hidden');
             
+            // Auto-hide success messages after 5 seconds
             if (type === 'success') {
                 setTimeout(() => {
                     statusMessage.classList.add('hidden');
@@ -579,21 +617,26 @@
             }
         }
 
-        // Handle account changes
+        // ===== WALLET EVENT HANDLERS =====
+        // Handle when user switches accounts in their wallet
         function handleAccountsChanged(accounts) {
             if (accounts.length === 0) {
+                // User disconnected wallet - reload page
                 location.reload();
             } else {
+                // User switched accounts - reload page to reconnect
                 location.reload();
             }
         }
 
-        // Handle chain changes
+        // Handle when user switches networks in their wallet
         function handleChainChanged(chainId) {
+            // Reload page when network changes
             location.reload();
         }
 
-        // Initialize when page loads
+        // ===== APPLICATION STARTUP =====
+        // Start the application when the page finishes loading
         window.addEventListener('load', init);
     </script>
 </body>
