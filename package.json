@@ -1,16 +1,17 @@
 {
-  "name": "onchain-tipjar",
+  "name": "onchain-tipjar-nextjs",
   "version": "1.0.0",
-  "description": "A Web3 tip jar application built on Base Sepolia testnet",
-  "main": "index.js",
+  "description": "A Web3 tip jar application built on Base Sepolia testnet with Next.js",
   "scripts": {
-    "dev": "npm run frontend",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "compile": "npx hardhat compile",
     "deploy": "npx hardhat run scripts/deploy.js --network baseSepolia",
     "deploy:local": "npx hardhat run scripts/deploy.js --network localhost",
     "test": "npx hardhat test",
-    "node": "npx hardhat node",
-    "frontend": "cd frontend && python -m http.server 8000 || python3 -m http.server 8000"
+    "node": "npx hardhat node"
   },
   "keywords": [
     "web3",
@@ -19,15 +20,31 @@
     "tipjar",
     "solidity",
     "hardhat",
-    "dapp"
+    "dapp",
+    "nextjs",
+    "react"
   ],
   "author": "Web3 Developer",
   "license": "MIT",
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "ethers": "^5.7.2",
+    "lucide-react": "^0.294.0"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "hardhat": "^2.17.1"
-  },
-  "dependencies": {
-    "dotenv": "^16.3.1"
+    "hardhat": "^2.17.1",
+    "dotenv": "^16.3.1",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.0.0"
   }
 }
